@@ -9,6 +9,18 @@ const todoSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  category: {
+    type: String,
+    default: '未分類',
+  },
+  dueDate: {
+    type: Date,
+    default: null,
+  },
+  order: {
+    type: Number,
+    default: 0,
+  },
   createdAt: {
     type: Date,
     default: Date.now,
