@@ -46,6 +46,44 @@ interface Todo {
 
 const categories = ['未分類', '仕事', 'プライベート', '買い物', 'その他'];
 
+interface CategoryColor {
+  main: string;
+  light: string;
+  text: string;
+}
+
+interface CategoryConfig {
+  [key: string]: CategoryColor;
+}
+
+const categoryColors: CategoryConfig = {
+  '未分類': {
+    main: '#6f7782',
+    light: '#f6f8f9',
+    text: '#6f7782',
+  },
+  '仕事': {
+    main: '#ff642e',
+    light: '#fff1ec',
+    text: '#ff642e',
+  },
+  'プライベート': {
+    main: '#796eff',
+    light: '#f4f3ff',
+    text: '#796eff',
+  },
+  '買い物': {
+    main: '#00c875',
+    light: '#e6fff5',
+    text: '#00c875',
+  },
+  'その他': {
+    main: '#fdab3d',
+    light: '#fff5e6',
+    text: '#fdab3d',
+  },
+};
+
 const theme = createTheme({
   palette: {
     primary: {
@@ -382,10 +420,14 @@ function App() {
                             mb: 1,
                             border: '1px solid',
                             borderColor: 'divider',
+                            borderLeft: `4px solid ${categoryColors[todo.category].main}`,
                             '&:hover': {
-                              borderColor: 'primary.main',
-                              bgcolor: alpha('#14aaf5', 0.02),
+                              borderColor: categoryColors[todo.category].main,
+                              borderLeftWidth: '4px',
+                              bgcolor: categoryColors[todo.category].light,
                             },
+                            position: 'relative',
+                            transition: 'all 0.2s ease',
                           }}
                         >
                           <Box
@@ -406,6 +448,12 @@ function App() {
                             onChange={() => handleToggle(todo._id)}
                             color="primary"
                             size="small"
+                            sx={{
+                              color: todo.completed ? '#cbd4db' : categoryColors[todo.category].main,
+                              '&.Mui-checked': {
+                                color: categoryColors[todo.category].main,
+                              },
+                            }}
                           />
                           <ListItemText
                             primary={
@@ -424,7 +472,14 @@ function App() {
                                   <Chip
                                     label={todo.category}
                                     size="small"
-                                    color="secondary"
+                                    sx={{
+                                      backgroundColor: categoryColors[todo.category].light,
+                                      color: categoryColors[todo.category].text,
+                                      borderColor: 'transparent',
+                                      '& .MuiChip-label': {
+                                        fontWeight: 500,
+                                      },
+                                    }}
                                   />
                                   {todo.dueDate && (
                                     <Chip
@@ -450,7 +505,13 @@ function App() {
                               edge="end"
                               aria-label="edit"
                               onClick={() => handleEdit(todo)}
-                              sx={{ mr: 1, color: 'text.secondary' }}
+                              sx={{ 
+                                mr: 1, 
+                                color: 'text.secondary',
+                                '&:hover': {
+                                  color: categoryColors[todo.category].main,
+                                },
+                              }}
                               size="small"
                             >
                               <EditIcon fontSize="small" />
@@ -459,7 +520,12 @@ function App() {
                               edge="end"
                               aria-label="delete"
                               onClick={() => handleDelete(todo._id)}
-                              sx={{ color: 'error.main' }}
+                              sx={{ 
+                                color: 'error.main',
+                                '&:hover': {
+                                  color: 'error.dark',
+                                },
+                              }}
                               size="small"
                             >
                               <DeleteIcon fontSize="small" />
@@ -503,7 +569,26 @@ function App() {
                 onChange={(e) => setEditCategory(e.target.value)}
               >
                 {categories.map((category) => (
-                  <MenuItem key={category} value={category}>
+                  <MenuItem 
+                    key={category} 
+                    value={category}
+                    sx={{
+                      color: categoryColors[category].text,
+                      '&:hover': {
+                        backgroundColor: categoryColors[category].light,
+                      },
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 12,
+                        height: 12,
+                        borderRadius: '50%',
+                        backgroundColor: categoryColors[category].main,
+                        mr: 1,
+                        display: 'inline-block',
+                      }}
+                    />
                     {category}
                   </MenuItem>
                 ))}
