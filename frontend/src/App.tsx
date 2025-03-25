@@ -31,8 +31,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
+import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
+import { TabContext, TabList, TabPanel } from '@mui/lab';
+import Tab from '@mui/material/Tab';
 import axios from 'axios';
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
+import { SyntheticEvent } from 'react';
 
 interface Todo {
   _id: string;
@@ -42,6 +47,7 @@ interface Todo {
   dueDate: string | null;
   order: number;
   createdAt: string;
+  deletedAt: string;
 }
 
 const categories = ['未分類', '仕事', 'プライベート', '買い物', 'その他'];
@@ -207,6 +213,8 @@ const theme = createTheme({
 
 function App() {
   const [todos, setTodos] = useState<Todo[]>([]);
+  const [deletedTodos, setDeletedTodos] = useState<Todo[]>([]);
+  const [activeTab, setActiveTab] = useState('active');
   const [newTodo, setNewTodo] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('未分類');
   const [dueDate, setDueDate] = useState('');
@@ -218,6 +226,7 @@ function App() {
 
   useEffect(() => {
     fetchTodos();
+    fetchDeletedTodos();
   }, []);
 
   const fetchTodos = async () => {
@@ -226,6 +235,15 @@ function App() {
       setTodos(response.data);
     } catch (error) {
       console.error('Error fetching todos:', error);
+    }
+  };
+
+  const fetchDeletedTodos = async () => {
+    try {
+      const response = await axios.get('http://localhost:3001/api/todos/trash');
+      setDeletedTodos(response.data);
+    } catch (error) {
+      console.error('Error fetching deleted todos:', error);
     }
   };
 
@@ -269,18 +287,32 @@ function App() {
   const handleDelete = async (id: string) => {
     try {
       await axios.delete(`http://localhost:3001/api/todos/${id}`);
+      const deletedTodo = todos.find(todo => todo._id === id);
+      if (deletedTodo) {
+        setDeletedTodos([deletedTodo, ...deletedTodos]);
+      }
       setTodos(todos.filter((todo) => todo._id !== id));
     } catch (error) {
       console.error('Error deleting todo:', error);
     }
   };
 
-  const handleDeleteCompleted = async () => {
+  const handleRestore = async (id: string) => {
     try {
-      await axios.delete('http://localhost:3001/api/todos/completed/all');
-      setTodos(todos.filter((todo) => !todo.completed));
+      const response = await axios.post(`http://localhost:3001/api/todos/${id}/restore`);
+      setTodos([response.data, ...todos]);
+      setDeletedTodos(deletedTodos.filter(todo => todo._id !== id));
     } catch (error) {
-      console.error('Error deleting completed todos:', error);
+      console.error('Error restoring todo:', error);
+    }
+  };
+
+  const handlePermanentDelete = async (id: string) => {
+    try {
+      await axios.delete(`http://localhost:3001/api/todos/${id}/permanent`);
+      setDeletedTodos(deletedTodos.filter(todo => todo._id !== id));
+    } catch (error) {
+      console.error('Error permanently deleting todo:', error);
     }
   };
 
@@ -334,6 +366,21 @@ function App() {
     }
   };
 
+  const handleTabChange = (_: SyntheticEvent, value: string) => {
+    setActiveTab(value);
+  };
+
+  const handleDeleteCompleted = async () => {
+    try {
+      await axios.delete('http://localhost:3001/api/todos/completed/all');
+      const completedTodos = todos.filter(todo => todo.completed);
+      setDeletedTodos([...completedTodos, ...deletedTodos]);
+      setTodos(todos.filter(todo => !todo.completed));
+    } catch (error) {
+      console.error('Error deleting completed todos:', error);
+    }
+  };
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
@@ -343,285 +390,417 @@ function App() {
             タスク管理
           </Typography>
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ mb: 4 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              placeholder="新しいタスクを入力してEnterを押してください"
-              value={newTodo}
-              onChange={(e) => setNewTodo(e.target.value)}
-              sx={{ 
-                mb: 2,
-                '& .MuiOutlinedInput-root': {
-                  '&.Mui-focused fieldset': {
-                    borderColor: categoryColors[selectedCategory].main,
-                  },
-                  '&:hover fieldset': {
-                    borderColor: categoryColors[selectedCategory].main,
-                  },
-                },
-                '& .MuiInputLabel-root.Mui-focused': {
-                  color: categoryColors[selectedCategory].main,
-                },
-              }}
-            />
-            <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-              <FormControl 
-                fullWidth
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&.Mui-focused fieldset': {
-                      borderColor: categoryColors[selectedCategory].main,
+          <TabContext value={activeTab}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
+              <TabList onChange={handleTabChange}>
+                <Tab label="アクティブ" value="active" />
+                <Tab 
+                  label={`ゴミ箱 (${deletedTodos.length})`} 
+                  value="trash"
+                  sx={{
+                    color: 'error.main',
+                    '&.Mui-selected': {
+                      color: 'error.main',
                     },
-                    '&:hover fieldset': {
-                      borderColor: categoryColors[selectedCategory].main,
+                  }}
+                />
+              </TabList>
+            </Box>
+
+            <TabPanel value="active" sx={{ p: 0 }}>
+              <Box component="form" onSubmit={handleSubmit} sx={{ mb: 4 }}>
+                <TextField
+                  fullWidth
+                  variant="outlined"
+                  placeholder="新しいタスクを入力してEnterを押してください"
+                  value={newTodo}
+                  onChange={(e) => setNewTodo(e.target.value)}
+                  sx={{ 
+                    mb: 2,
+                    '& .MuiOutlinedInput-root': {
+                      '&.Mui-focused fieldset': {
+                        borderColor: categoryColors[selectedCategory].main,
+                      },
+                      '&:hover fieldset': {
+                        borderColor: categoryColors[selectedCategory].main,
+                      },
                     },
-                  },
-                  '& .MuiInputLabel-root.Mui-focused': {
-                    color: categoryColors[selectedCategory].main,
-                  },
-                }}
-              >
-                <InputLabel>カテゴリー</InputLabel>
-                <Select
-                  value={selectedCategory}
-                  label="カテゴリー"
-                  onChange={(e) => setSelectedCategory(e.target.value)}
-                >
-                  {categories.map((category) => (
-                    <MenuItem 
-                      key={category} 
-                      value={category}
-                      sx={{
-                        color: categoryColors[category].text,
-                        '&:hover': {
-                          backgroundColor: categoryColors[category].light,
+                    '& .MuiInputLabel-root.Mui-focused': {
+                      color: categoryColors[selectedCategory].main,
+                    },
+                  }}
+                />
+                <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
+                  <FormControl 
+                    fullWidth
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&.Mui-focused fieldset': {
+                          borderColor: categoryColors[selectedCategory].main,
                         },
-                        '&.Mui-selected': {
-                          backgroundColor: categoryColors[category].light,
-                          '&:hover': {
-                            backgroundColor: categoryColors[category].light,
-                          },
+                        '&:hover fieldset': {
+                          borderColor: categoryColors[selectedCategory].main,
                         },
-                      }}
+                      },
+                      '& .MuiInputLabel-root.Mui-focused': {
+                        color: categoryColors[selectedCategory].main,
+                      },
+                    }}
+                  >
+                    <InputLabel>カテゴリー</InputLabel>
+                    <Select
+                      value={selectedCategory}
+                      label="カテゴリー"
+                      onChange={(e) => setSelectedCategory(e.target.value)}
                     >
-                      <Box
-                        sx={{
-                          width: 12,
-                          height: 12,
-                          borderRadius: '50%',
-                          backgroundColor: categoryColors[category].main,
-                          mr: 1,
-                          display: 'inline-block',
-                        }}
-                      />
-                      {category}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <TextField
-                type="date"
-                label="期限"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                InputLabelProps={{ shrink: true }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    '&.Mui-focused fieldset': {
-                      borderColor: categoryColors[selectedCategory].main,
-                    },
-                    '&:hover fieldset': {
-                      borderColor: categoryColors[selectedCategory].main,
-                    },
-                  },
-                  '& .MuiInputLabel-root.Mui-focused': {
-                    color: categoryColors[selectedCategory].main,
-                  },
-                }}
-              />
-            </Stack>
-            <Button
-              fullWidth
-              variant="contained"
-              type="submit"
-              disabled={!newTodo.trim()}
-              sx={{ 
-                py: 1.5,
-                bgcolor: categoryColors[selectedCategory].main,
-                '&:hover': {
-                  bgcolor: categoryColors[selectedCategory].main,
-                  opacity: 0.9,
-                },
-                '&.Mui-disabled': {
-                  bgcolor: alpha(categoryColors[selectedCategory].main, 0.3),
-                },
-              }}
-            >
-              タスクを追加
-            </Button>
-          </Box>
-
-          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="outlined"
-              color="error"
-              startIcon={<DeleteSweepIcon />}
-              onClick={handleDeleteCompleted}
-              disabled={!todos.some((todo) => todo.completed)}
-              sx={{
-                borderColor: 'error.main',
-                '&:hover': {
-                  backgroundColor: alpha('#ff5263', 0.04),
-                  borderColor: 'error.dark',
-                },
-              }}
-            >
-              完了したタスクを削除
-            </Button>
-          </Box>
-
-          <DragDropContext onDragEnd={handleDragEnd}>
-            <Droppable droppableId="todos">
-              {(provided) => (
-                <List {...provided.droppableProps} ref={provided.innerRef}>
-                  {todos.map((todo, index) => (
-                    <Draggable key={todo._id} draggableId={todo._id} index={index}>
-                      {(provided) => (
-                        <ListItem
-                          ref={provided.innerRef}
-                          {...provided.draggableProps}
+                      {categories.map((category) => (
+                        <MenuItem 
+                          key={category} 
+                          value={category}
                           sx={{
-                            bgcolor: 'background.paper',
-                            mb: 1,
-                            border: '1px solid',
-                            borderColor: 'divider',
-                            borderLeft: `4px solid ${categoryColors[todo.category].main}`,
+                            color: categoryColors[category].text,
                             '&:hover': {
-                              borderColor: categoryColors[todo.category].main,
-                              borderLeftWidth: '4px',
-                              bgcolor: categoryColors[todo.category].light,
+                              backgroundColor: categoryColors[category].light,
                             },
-                            position: 'relative',
-                            transition: 'all 0.2s ease',
+                            '&.Mui-selected': {
+                              backgroundColor: categoryColors[category].light,
+                              '&:hover': {
+                                backgroundColor: categoryColors[category].light,
+                              },
+                            },
                           }}
                         >
                           <Box
-                            {...provided.dragHandleProps}
-                            className="drag-handle"
                             sx={{
-                              visibility: 'hidden',
-                              color: 'text.secondary',
-                              display: 'flex',
-                              alignItems: 'center',
+                              width: 12,
+                              height: 12,
+                              borderRadius: '50%',
+                              backgroundColor: categoryColors[category].main,
                               mr: 1,
-                            }}
-                          >
-                            <DragIndicatorIcon />
-                          </Box>
-                          <Checkbox
-                            checked={todo.completed}
-                            onChange={() => handleToggle(todo._id)}
-                            color="primary"
-                            size="small"
-                            sx={{
-                              color: todo.completed ? '#cbd4db' : categoryColors[todo.category].main,
-                              '&.Mui-checked': {
-                                color: categoryColors[todo.category].main,
-                              },
+                              display: 'inline-block',
                             }}
                           />
-                          <ListItemText
-                            primary={
-                              <Box>
-                                <Typography
-                                  variant="body1"
-                                  sx={{
-                                    textDecoration: todo.completed ? 'line-through' : 'none',
-                                    color: todo.completed ? 'text.secondary' : 'text.primary',
-                                    mb: 0.5,
-                                  }}
-                                >
-                                  {todo.title}
-                                </Typography>
-                                <Stack direction="row" spacing={1}>
-                                  <Chip
-                                    label={todo.category}
-                                    size="small"
-                                    sx={{
-                                      backgroundColor: categoryColors[todo.category].light,
-                                      color: categoryColors[todo.category].text,
-                                      borderColor: 'transparent',
-                                      '& .MuiChip-label': {
-                                        fontWeight: 500,
-                                      },
-                                    }}
-                                  />
-                                  {todo.dueDate && (
-                                    <Chip
-                                      label={`期限: ${new Date(
-                                        todo.dueDate
-                                      ).toLocaleDateString()}`}
-                                      size="small"
-                                      variant="outlined"
-                                      sx={{
-                                        borderColor: categoryColors[todo.category].main,
-                                        color: categoryColors[todo.category].text,
-                                        '& .MuiChip-label': {
-                                          fontWeight: 500,
-                                        },
-                                      }}
-                                    />
-                                  )}
-                                </Stack>
+                          {category}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    type="date"
+                    label="期限"
+                    value={dueDate}
+                    onChange={(e) => setDueDate(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        '&.Mui-focused fieldset': {
+                          borderColor: categoryColors[selectedCategory].main,
+                        },
+                        '&:hover fieldset': {
+                          borderColor: categoryColors[selectedCategory].main,
+                        },
+                      },
+                      '& .MuiInputLabel-root.Mui-focused': {
+                        color: categoryColors[selectedCategory].main,
+                      },
+                    }}
+                  />
+                </Stack>
+                <Button
+                  fullWidth
+                  variant="contained"
+                  type="submit"
+                  disabled={!newTodo.trim()}
+                  sx={{ 
+                    py: 1.5,
+                    bgcolor: categoryColors[selectedCategory].main,
+                    '&:hover': {
+                      bgcolor: categoryColors[selectedCategory].main,
+                      opacity: 0.9,
+                    },
+                    '&.Mui-disabled': {
+                      bgcolor: alpha(categoryColors[selectedCategory].main, 0.3),
+                    },
+                  }}
+                >
+                  タスクを追加
+                </Button>
+              </Box>
+
+              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  startIcon={<DeleteSweepIcon />}
+                  onClick={handleDeleteCompleted}
+                  disabled={!todos.some((todo) => todo.completed)}
+                  sx={{
+                    borderColor: 'error.main',
+                    '&:hover': {
+                      backgroundColor: alpha('#ff5263', 0.04),
+                      borderColor: 'error.dark',
+                    },
+                  }}
+                >
+                  完了したタスクを削除
+                </Button>
+              </Box>
+
+              <DragDropContext onDragEnd={handleDragEnd}>
+                <Droppable droppableId="todos">
+                  {(provided) => (
+                    <List {...provided.droppableProps} ref={provided.innerRef}>
+                      {todos.map((todo, index) => (
+                        <Draggable key={todo._id} draggableId={todo._id} index={index}>
+                          {(provided) => (
+                            <ListItem
+                              ref={provided.innerRef}
+                              {...provided.draggableProps}
+                              sx={{
+                                bgcolor: 'background.paper',
+                                mb: 1,
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                borderLeft: `4px solid ${categoryColors[todo.category].main}`,
+                                '&:hover': {
+                                  borderColor: categoryColors[todo.category].main,
+                                  borderLeftWidth: '4px',
+                                  bgcolor: categoryColors[todo.category].light,
+                                },
+                                position: 'relative',
+                                transition: 'all 0.2s ease',
+                              }}
+                            >
+                              <Box
+                                {...provided.dragHandleProps}
+                                className="drag-handle"
+                                sx={{
+                                  visibility: 'hidden',
+                                  color: 'text.secondary',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  mr: 1,
+                                }}
+                              >
+                                <DragIndicatorIcon />
                               </Box>
-                            }
-                          />
-                          <ListItemSecondaryAction
+                              <Checkbox
+                                checked={todo.completed}
+                                onChange={() => handleToggle(todo._id)}
+                                color="primary"
+                                size="small"
+                                sx={{
+                                  color: todo.completed ? '#cbd4db' : categoryColors[todo.category].main,
+                                  '&.Mui-checked': {
+                                    color: categoryColors[todo.category].main,
+                                  },
+                                }}
+                              />
+                              <ListItemText
+                                primary={
+                                  <Box>
+                                    <Typography
+                                      variant="body1"
+                                      sx={{
+                                        textDecoration: todo.completed ? 'line-through' : 'none',
+                                        color: todo.completed ? 'text.secondary' : 'text.primary',
+                                        mb: 0.5,
+                                      }}
+                                    >
+                                      {todo.title}
+                                    </Typography>
+                                    <Stack direction="row" spacing={1}>
+                                      <Chip
+                                        label={todo.category}
+                                        size="small"
+                                        sx={{
+                                          backgroundColor: categoryColors[todo.category].light,
+                                          color: categoryColors[todo.category].text,
+                                          borderColor: 'transparent',
+                                          '& .MuiChip-label': {
+                                            fontWeight: 500,
+                                          },
+                                        }}
+                                      />
+                                      {todo.dueDate && (
+                                        <Chip
+                                          label={`期限: ${new Date(
+                                            todo.dueDate
+                                          ).toLocaleDateString()}`}
+                                          size="small"
+                                          variant="outlined"
+                                          sx={{
+                                            borderColor: categoryColors[todo.category].main,
+                                            color: categoryColors[todo.category].text,
+                                            '& .MuiChip-label': {
+                                              fontWeight: 500,
+                                            },
+                                          }}
+                                        />
+                                      )}
+                                    </Stack>
+                                  </Box>
+                                }
+                              />
+                              <ListItemSecondaryAction
+                                sx={{
+                                  visibility: 'hidden',
+                                  right: 8,
+                                }}
+                              >
+                                <IconButton
+                                  edge="end"
+                                  aria-label="edit"
+                                  onClick={() => handleEdit(todo)}
+                                  sx={{ 
+                                    mr: 1, 
+                                    color: 'text.secondary',
+                                    '&:hover': {
+                                      color: categoryColors[todo.category].main,
+                                    },
+                                  }}
+                                  size="small"
+                                >
+                                  <EditIcon fontSize="small" />
+                                </IconButton>
+                                <IconButton
+                                  edge="end"
+                                  aria-label="delete"
+                                  onClick={() => handleDelete(todo._id)}
+                                  sx={{ 
+                                    color: 'error.main',
+                                    '&:hover': {
+                                      color: 'error.dark',
+                                    },
+                                  }}
+                                  size="small"
+                                >
+                                  <DeleteIcon fontSize="small" />
+                                </IconButton>
+                              </ListItemSecondaryAction>
+                            </ListItem>
+                          )}
+                        </Draggable>
+                      ))}
+                      {provided.placeholder}
+                    </List>
+                  )}
+                </Droppable>
+              </DragDropContext>
+            </TabPanel>
+
+            <TabPanel value="trash" sx={{ p: 0 }}>
+              <List>
+                {deletedTodos.map((todo) => (
+                  <ListItem
+                    key={todo._id}
+                    sx={{
+                      bgcolor: 'background.paper',
+                      mb: 1,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderLeft: `4px solid ${categoryColors[todo.category].main}`,
+                      opacity: 0.7,
+                      '&:hover': {
+                        opacity: 1,
+                        borderColor: categoryColors[todo.category].main,
+                        borderLeftWidth: '4px',
+                        bgcolor: categoryColors[todo.category].light,
+                      },
+                      position: 'relative',
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    <ListItemText
+                      primary={
+                        <Box>
+                          <Typography
+                            variant="body1"
                             sx={{
-                              visibility: 'hidden',
-                              right: 8,
+                              color: 'text.secondary',
+                              mb: 0.5,
                             }}
                           >
-                            <IconButton
-                              edge="end"
-                              aria-label="edit"
-                              onClick={() => handleEdit(todo)}
-                              sx={{ 
-                                mr: 1, 
-                                color: 'text.secondary',
-                                '&:hover': {
-                                  color: categoryColors[todo.category].main,
+                            {todo.title}
+                          </Typography>
+                          <Stack direction="row" spacing={1}>
+                            <Chip
+                              label={todo.category}
+                              size="small"
+                              sx={{
+                                backgroundColor: categoryColors[todo.category].light,
+                                color: categoryColors[todo.category].text,
+                                borderColor: 'transparent',
+                                opacity: 0.7,
+                                '& .MuiChip-label': {
+                                  fontWeight: 500,
                                 },
                               }}
+                            />
+                            {todo.dueDate && (
+                              <Chip
+                                label={`期限: ${new Date(todo.dueDate).toLocaleDateString()}`}
+                                size="small"
+                                variant="outlined"
+                                sx={{
+                                  borderColor: categoryColors[todo.category].main,
+                                  color: categoryColors[todo.category].text,
+                                  opacity: 0.7,
+                                  '& .MuiChip-label': {
+                                    fontWeight: 500,
+                                  },
+                                }}
+                              />
+                            )}
+                            <Chip
+                              label={`削除: ${new Date(todo.deletedAt).toLocaleDateString()}`}
                               size="small"
-                            >
-                              <EditIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton
-                              edge="end"
-                              aria-label="delete"
-                              onClick={() => handleDelete(todo._id)}
-                              sx={{ 
-                                color: 'error.main',
-                                '&:hover': {
-                                  color: 'error.dark',
+                              color="error"
+                              variant="outlined"
+                              sx={{
+                                opacity: 0.7,
+                                '& .MuiChip-label': {
+                                  fontWeight: 500,
                                 },
                               }}
-                              size="small"
-                            >
-                              <DeleteIcon fontSize="small" />
-                            </IconButton>
-                          </ListItemSecondaryAction>
-                        </ListItem>
-                      )}
-                    </Draggable>
-                  ))}
-                  {provided.placeholder}
-                </List>
-              )}
-            </Droppable>
-          </DragDropContext>
+                            />
+                          </Stack>
+                        </Box>
+                      }
+                    />
+                    <ListItemSecondaryAction>
+                      <IconButton
+                        edge="end"
+                        aria-label="restore"
+                        onClick={() => handleRestore(todo._id)}
+                        sx={{ 
+                          mr: 1,
+                          color: categoryColors[todo.category].main,
+                        }}
+                        size="small"
+                      >
+                        <RestoreFromTrashIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        edge="end"
+                        aria-label="delete permanently"
+                        onClick={() => handlePermanentDelete(todo._id)}
+                        sx={{ 
+                          color: 'error.main',
+                          '&:hover': {
+                            color: 'error.dark',
+                          },
+                        }}
+                        size="small"
+                      >
+                        <DeleteForeverIcon fontSize="small" />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                ))}
+              </List>
+            </TabPanel>
+          </TabContext>
         </Paper>
 
         <Dialog 
