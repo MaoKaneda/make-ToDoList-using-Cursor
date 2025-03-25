@@ -350,10 +350,38 @@ function App() {
               placeholder="新しいタスクを入力してEnterを押してください"
               value={newTodo}
               onChange={(e) => setNewTodo(e.target.value)}
-              sx={{ mb: 2 }}
+              sx={{ 
+                mb: 2,
+                '& .MuiOutlinedInput-root': {
+                  '&.Mui-focused fieldset': {
+                    borderColor: categoryColors[selectedCategory].main,
+                  },
+                  '&:hover fieldset': {
+                    borderColor: categoryColors[selectedCategory].main,
+                  },
+                },
+                '& .MuiInputLabel-root.Mui-focused': {
+                  color: categoryColors[selectedCategory].main,
+                },
+              }}
             />
             <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-              <FormControl fullWidth>
+              <FormControl 
+                fullWidth
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: categoryColors[selectedCategory].main,
+                    },
+                    '&:hover fieldset': {
+                      borderColor: categoryColors[selectedCategory].main,
+                    },
+                  },
+                  '& .MuiInputLabel-root.Mui-focused': {
+                    color: categoryColors[selectedCategory].main,
+                  },
+                }}
+              >
                 <InputLabel>カテゴリー</InputLabel>
                 <Select
                   value={selectedCategory}
@@ -361,7 +389,32 @@ function App() {
                   onChange={(e) => setSelectedCategory(e.target.value)}
                 >
                   {categories.map((category) => (
-                    <MenuItem key={category} value={category}>
+                    <MenuItem 
+                      key={category} 
+                      value={category}
+                      sx={{
+                        color: categoryColors[category].text,
+                        '&:hover': {
+                          backgroundColor: categoryColors[category].light,
+                        },
+                        '&.Mui-selected': {
+                          backgroundColor: categoryColors[category].light,
+                          '&:hover': {
+                            backgroundColor: categoryColors[category].light,
+                          },
+                        },
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: '50%',
+                          backgroundColor: categoryColors[category].main,
+                          mr: 1,
+                          display: 'inline-block',
+                        }}
+                      />
                       {category}
                     </MenuItem>
                   ))}
@@ -373,6 +426,19 @@ function App() {
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
                 InputLabelProps={{ shrink: true }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '&.Mui-focused fieldset': {
+                      borderColor: categoryColors[selectedCategory].main,
+                    },
+                    '&:hover fieldset': {
+                      borderColor: categoryColors[selectedCategory].main,
+                    },
+                  },
+                  '& .MuiInputLabel-root.Mui-focused': {
+                    color: categoryColors[selectedCategory].main,
+                  },
+                }}
               />
             </Stack>
             <Button
@@ -380,7 +446,17 @@ function App() {
               variant="contained"
               type="submit"
               disabled={!newTodo.trim()}
-              sx={{ py: 1.5 }}
+              sx={{ 
+                py: 1.5,
+                bgcolor: categoryColors[selectedCategory].main,
+                '&:hover': {
+                  bgcolor: categoryColors[selectedCategory].main,
+                  opacity: 0.9,
+                },
+                '&.Mui-disabled': {
+                  bgcolor: alpha(categoryColors[selectedCategory].main, 0.3),
+                },
+              }}
             >
               タスクを追加
             </Button>
@@ -487,8 +563,14 @@ function App() {
                                         todo.dueDate
                                       ).toLocaleDateString()}`}
                                       size="small"
-                                      color="primary"
                                       variant="outlined"
+                                      sx={{
+                                        borderColor: categoryColors[todo.category].main,
+                                        color: categoryColors[todo.category].text,
+                                        '& .MuiChip-label': {
+                                          fontWeight: 500,
+                                        },
+                                      }}
                                     />
                                   )}
                                 </Stack>
