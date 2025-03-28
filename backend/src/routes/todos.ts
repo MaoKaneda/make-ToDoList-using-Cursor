@@ -1,156 +1,197 @@
 import express, { Request, Response } from 'express';
 import Todo from '../models/Todo';
 
+// ルーターを作成します
+// これは、タスクに関するいろいろな操作（追加、削除など）をまとめたものです
 const router = express.Router();
 
-// 通常のタスク一覧を取得（削除されていないもの）
+// 1. すべてのタスクを取得する
+// GET /api/todos
 router.get('/', async (req, res) => {
   try {
-    const todos = await Todo.find({ isDeleted: false }).sort({ order: 1, createdAt: -1 });
+    // データベースから、削除されていないタスクをすべて取得します
+    // order（表示順番）とcreatedAt（作成日時）で並び替えます
+    const todos = await Todo.find({ isDeleted: false })
+      .sort({ order: 1, createdAt: -1 });
     res.json(todos);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching todos' });
+    res.status(500).json({ message: 'タスクの取得に失敗しました' });
   }
 });
 
-// 削除済みタスク一覧を取得
+// 2. 削除されたタスクを取得する
+// GET /api/todos/trash
 router.get('/trash', async (req, res) => {
   try {
-    const deletedTodos = await Todo.find({ isDeleted: true }).sort({ deletedAt: -1 });
+    // ゴミ箱に入れられたタスクをすべて取得します
+    const deletedTodos = await Todo.find({ isDeleted: true })
+      .sort({ deletedAt: -1 });
     res.json(deletedTodos);
   } catch (error) {
-    res.status(500).json({ message: 'Error fetching deleted todos' });
+    res.status(500).json({ message: '削除されたタスクの取得に失敗しました' });
   }
 });
 
-// 新しいタスクを作成
+// 3. 新しいタスクを作成する
+// POST /api/todos
 router.post('/', async (req, res) => {
   try {
+    // 新しいタスクのデータを受け取ります
     const { title, category, dueDate } = req.body;
-    const lastTodo = await Todo.findOne({ isDeleted: false }).sort({ order: -1 });
-    const order = lastTodo ? lastTodo.order + 1 : 0;
-    
+
+    // 現在のタスクの数を数えて、新しいタスクの表示順番を決めます
+    const count = await Todo.countDocuments({ isDeleted: false });
+    const order = count;
+
+    // 新しいタスクを作成します
     const todo = new Todo({
       title,
       category,
       dueDate,
-      order,
+      order
     });
-    
-    const savedTodo = await todo.save();
-    res.status(201).json(savedTodo);
+
+    // データベースに保存します
+    await todo.save();
+    res.status(201).json(todo);
   } catch (error) {
-    res.status(500).json({ message: 'Error creating todo' });
+    res.status(500).json({ message: 'タスクの作成に失敗しました' });
   }
 });
 
-// タスクを更新
+// 4. タスクを更新する
+// PATCH /api/todos/:id
 router.patch('/:id', async (req, res) => {
   try {
-    const updatedTodo = await Todo.findByIdAndUpdate(
-      req.params.id,
-      { $set: req.body },
-      { new: true }
+    const { id } = req.params;
+    const updates = req.body;
+
+    // タスクを探して更新します
+    const todo = await Todo.findByIdAndUpdate(
+      id,
+      updates,
+      { new: true }  // 更新後のタスクを返します
     );
-    if (!updatedTodo) {
-      return res.status(404).json({ message: 'Todo not found' });
+
+    if (!todo) {
+      return res.status(404).json({ message: 'タスクが見つかりません' });
     }
-    res.json(updatedTodo);
+
+    res.json(todo);
   } catch (error) {
-    res.status(500).json({ message: 'Error updating todo' });
+    res.status(500).json({ message: 'タスクの更新に失敗しました' });
   }
 });
 
-// タスクを削除（ソフトデリート）
+// 5. タスクを削除する（ゴミ箱に入れる）
+// DELETE /api/todos/:id
 router.delete('/:id', async (req, res) => {
   try {
+    const { id } = req.params;
+
+    // タスクを探して、削除済みとしてマークします
     const todo = await Todo.findByIdAndUpdate(
-      req.params.id,
+      id,
       { 
-        $set: { 
-          isDeleted: true,
-          deletedAt: new Date(),
-        }
+        isDeleted: true,
+        deletedAt: new Date()
       },
       { new: true }
     );
+
     if (!todo) {
-      return res.status(404).json({ message: 'Todo not found' });
+      return res.status(404).json({ message: 'タスクが見つかりません' });
     }
+
     res.json(todo);
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting todo' });
+    res.status(500).json({ message: 'タスクの削除に失敗しました' });
   }
 });
 
-// タスクを完全に削除
+// 6. タスクを完全に削除する
+// DELETE /api/todos/:id/permanent
 router.delete('/:id/permanent', async (req, res) => {
   try {
-    const todo = await Todo.findByIdAndDelete(req.params.id);
+    const { id } = req.params;
+
+    // タスクを完全に削除します
+    const todo = await Todo.findByIdAndDelete(id);
+
     if (!todo) {
-      return res.status(404).json({ message: 'Todo not found' });
+      return res.status(404).json({ message: 'タスクが見つかりません' });
     }
-    res.json({ message: 'Todo permanently deleted' });
+
+    res.json({ message: 'タスクを完全に削除しました' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting todo permanently' });
+    res.status(500).json({ message: 'タスクの完全削除に失敗しました' });
   }
 });
 
-// 削除済みタスクを復元
+// 7. タスクを復元する
+// POST /api/todos/:id/restore
 router.post('/:id/restore', async (req, res) => {
   try {
+    const { id } = req.params;
+
+    // タスクを探して、削除状態を解除します
     const todo = await Todo.findByIdAndUpdate(
-      req.params.id,
+      id,
       { 
-        $set: { 
-          isDeleted: false,
-          deletedAt: null,
-        }
+        isDeleted: false,
+        deletedAt: null
       },
       { new: true }
     );
+
     if (!todo) {
-      return res.status(404).json({ message: 'Todo not found' });
+      return res.status(404).json({ message: 'タスクが見つかりません' });
     }
+
     res.json(todo);
   } catch (error) {
-    res.status(500).json({ message: 'Error restoring todo' });
+    res.status(500).json({ message: 'タスクの復元に失敗しました' });
   }
 });
 
-// 完了したタスクを一括削除（ソフトデリート）
-router.delete('/completed/all', async (req, res) => {
+// 8. 完了したタスクを一括削除する
+// DELETE /api/todos/completed
+router.delete('/completed', async (req, res) => {
   try {
-    const result = await Todo.updateMany(
+    // 完了済みのタスクをすべて削除状態にします
+    await Todo.updateMany(
       { completed: true, isDeleted: false },
       { 
-        $set: { 
-          isDeleted: true,
-          deletedAt: new Date(),
-        }
+        isDeleted: true,
+        deletedAt: new Date()
       }
     );
-    res.json({ message: `${result.modifiedCount} todos moved to trash` });
+
+    res.json({ message: '完了したタスクを削除しました' });
   } catch (error) {
-    res.status(500).json({ message: 'Error deleting completed todos' });
+    res.status(500).json({ message: '完了タスクの削除に失敗しました' });
   }
 });
 
-// タスクの順序を更新
+// 9. タスクの順番を変更する
+// PATCH /api/todos/reorder
 router.patch('/reorder', async (req, res) => {
   try {
     const { todos } = req.body;
-    const updates = todos.map((todo: { _id: string; order: number }) => ({
-      updateOne: {
-        filter: { _id: todo._id },
-        update: { $set: { order: todo.order } },
-      },
-    }));
-    
-    await Todo.bulkWrite(updates);
-    res.json({ message: 'Orders updated successfully' });
+
+    // 複数のタスクの順番を一度に更新します
+    await Todo.bulkWrite(
+      todos.map((todo: any) => ({
+        updateOne: {
+          filter: { _id: todo._id },
+          update: { $set: { order: todo.order } }
+        }
+      }))
+    );
+
+    res.json({ message: 'タスクの順番を更新しました' });
   } catch (error) {
-    res.status(500).json({ message: 'Error updating orders' });
+    res.status(500).json({ message: 'タスクの順番の更新に失敗しました' });
   }
 });
 

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Container,
+  Box,
   Typography,
   TextField,
   Button,
@@ -10,245 +11,96 @@ import {
   ListItemSecondaryAction,
   IconButton,
   Checkbox,
-  Paper,
-  Box,
+  Chip,
+  MenuItem,
+  Tabs,
+  Tab,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
-  Select,
-  MenuItem,
   FormControl,
   InputLabel,
-  Chip,
-  Stack,
-  ThemeProvider,
-  createTheme,
-  CssBaseline,
-  alpha,
+  Select,
+  TabList,
+  TabContext,
+  TabPanel,
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteSweepIcon from '@mui/icons-material/DeleteSweep';
-import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import RestoreFromTrashIcon from '@mui/icons-material/RestoreFromTrash';
-import DeleteForeverIcon from '@mui/icons-material/DeleteForever';
-import { TabContext, TabList, TabPanel } from '@mui/lab';
-import Tab from '@mui/material/Tab';
+import { Delete as DeleteIcon, Edit as EditIcon, Restore as RestoreIcon } from '@mui/icons-material';
+import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import axios from 'axios';
-import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd';
-import { SyntheticEvent } from 'react';
 
+// タスクの型を定義します
+// これは、タスクがどんな情報を持っているかを表す「設計図」のようなものです
 interface Todo {
-  _id: string;
-  title: string;
-  completed: boolean;
-  category: string;
-  dueDate: string | null;
-  order: number;
-  createdAt: string;
-  deletedAt: string;
+  _id: string;           // タスクのID（データベースで使う番号）
+  title: string;         // タスクのタイトル
+  completed: boolean;    // タスクが完了したかどうか
+  category: string;      // タスクの種類
+  dueDate: string | null; // タスクの期限
+  order: number;         // タスクの表示順番
+  isDeleted: boolean;    // タスクが削除されたかどうか
+  deletedAt: string | null; // タスクを削除した日時
 }
 
-const categories = ['未分類', '仕事', 'プライベート', '買い物', 'その他'];
-
-interface CategoryColor {
-  main: string;
-  light: string;
-  text: string;
+// カテゴリーごとの色を定義します
+// これは、タスクの種類によって表示する色を決めるものです
+interface CategoryColors {
+  [key: string]: {
+    main: string;    // メインの色
+    light: string;   // 明るい色
+    dark: string;    // 暗い色
+  };
 }
 
-interface CategoryConfig {
-  [key: string]: CategoryColor;
-}
-
-const categoryColors: CategoryConfig = {
-  '未分類': {
-    main: '#6f7782',
-    light: '#f6f8f9',
-    text: '#6f7782',
-  },
-  '仕事': {
-    main: '#ff642e',
-    light: '#fff1ec',
-    text: '#ff642e',
-  },
-  'プライベート': {
-    main: '#796eff',
-    light: '#f4f3ff',
-    text: '#796eff',
-  },
-  '買い物': {
-    main: '#00c875',
-    light: '#e6fff5',
-    text: '#00c875',
-  },
-  'その他': {
-    main: '#fdab3d',
-    light: '#fff5e6',
-    text: '#fdab3d',
-  },
+// カテゴリーごとの色を設定します
+const categoryColors: CategoryColors = {
+  '未分類': { main: '#9e9e9e', light: '#e0e0e0', dark: '#616161' },
+  '仕事': { main: '#2196f3', light: '#bbdefb', dark: '#1976d2' },
+  'プライベート': { main: '#4caf50', light: '#c8e6c9', dark: '#388e3c' },
+  '買い物': { main: '#ff9800', light: '#ffe0b2', dark: '#f57c00' },
+  'その他': { main: '#9c27b0', light: '#e1bee7', dark: '#7b1fa2' },
 };
 
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#14aaf5', // Asanaのブルー
-      light: '#4fc3f7',
-      dark: '#0d8ecf',
-    },
-    secondary: {
-      main: '#796eff', // Asanaのパープル
-      light: '#9d97ff',
-      dark: '#5b4ccc',
-    },
-    error: {
-      main: '#ff5263', // Asanaのレッド
-    },
-    background: {
-      default: '#f6f8f9', // Asanaの背景色
-      paper: '#ffffff',
-    },
-    text: {
-      primary: '#1e1f21', // Asanaのテキストカラー
-      secondary: '#6f7782',
-    },
-    divider: '#e8ecee', // Asanaの区切り線
-  },
-  typography: {
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-    h4: {
-      fontWeight: 500,
-      color: '#1e1f21',
-      fontSize: '1.5rem',
-    },
-    body1: {
-      fontSize: '0.875rem',
-    },
-  },
-  components: {
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 1px 3px 0 rgba(21,27,38,.15)',
-          borderRadius: 8,
-        },
-      },
-    },
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-          borderRadius: 6,
-          fontWeight: 500,
-          fontSize: '0.875rem',
-        },
-        contained: {
-          boxShadow: 'none',
-          '&:hover': {
-            boxShadow: 'none',
-          },
-        },
-      },
-    },
-    MuiChip: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-          height: 24,
-          backgroundColor: alpha('#796eff', 0.08),
-          color: '#796eff',
-          border: 'none',
-          '& .MuiChip-label': {
-            padding: '0 8px',
-            fontSize: '0.75rem',
-            fontWeight: 500,
-          },
-        },
-        outlined: {
-          backgroundColor: 'transparent',
-        },
-      },
-    },
-    MuiListItem: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          marginBottom: 4,
-          padding: '8px 12px',
-          '&:hover': {
-            backgroundColor: '#f6f8f9',
-            '& .MuiListItemSecondaryAction-root': {
-              visibility: 'visible',
-            },
-            '& .drag-handle': {
-              visibility: 'visible',
-            },
-          },
-        },
-      },
-    },
-    MuiCheckbox: {
-      styleOverrides: {
-        root: {
-          padding: 8,
-          color: '#cbd4db',
-          '&.Mui-checked': {
-            color: '#14aaf5',
-          },
-        },
-      },
-    },
-    MuiTextField: {
-      styleOverrides: {
-        root: {
-          '& .MuiOutlinedInput-root': {
-            borderRadius: 8,
-          },
-        },
-      },
-    },
-  },
-});
-
+// アプリケーションのメインコンポーネントです
 function App() {
-  const [todos, setTodos] = useState<Todo[]>([]);
-  const [deletedTodos, setDeletedTodos] = useState<Todo[]>([]);
-  const [activeTab, setActiveTab] = useState('active');
-  const [newTodo, setNewTodo] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('未分類');
-  const [dueDate, setDueDate] = useState('');
-  const [editingTodo, setEditingTodo] = useState<Todo | null>(null);
-  const [openDialog, setOpenDialog] = useState(false);
-  const [editTitle, setEditTitle] = useState('');
-  const [editCategory, setEditCategory] = useState('');
-  const [editDueDate, setEditDueDate] = useState('');
+  // タスクの状態を管理します
+  const [todos, setTodos] = useState<Todo[]>([]);        // 通常のタスク一覧
+  const [deletedTodos, setDeletedTodos] = useState<Todo[]>([]); // 削除されたタスク一覧
+  const [newTodo, setNewTodo] = useState('');           // 新しいタスクの入力
+  const [editingTodo, setEditingTodo] = useState<Todo | null>(null); // 編集中のタスク
+  const [selectedCategory, setSelectedCategory] = useState('未分類'); // 選択中のカテゴリー
+  const [dueDate, setDueDate] = useState<string>('');   // 期限の設定
+  const [tabValue, setTabValue] = useState('0');        // タブの選択状態
 
+  // アプリケーションが起動したときに実行されます
   useEffect(() => {
-    fetchTodos();
-    fetchDeletedTodos();
+    fetchTodos();      // 通常のタスクを取得
+    fetchDeletedTodos(); // 削除されたタスクを取得
   }, []);
 
+  // 通常のタスクを取得する関数
   const fetchTodos = async () => {
     try {
       const response = await axios.get('http://localhost:3001/api/todos');
       setTodos(response.data);
     } catch (error) {
-      console.error('Error fetching todos:', error);
+      console.error('タスクの取得に失敗しました:', error);
     }
   };
 
+  // 削除されたタスクを取得する関数
   const fetchDeletedTodos = async () => {
     try {
       const response = await axios.get('http://localhost:3001/api/todos/trash');
       setDeletedTodos(response.data);
     } catch (error) {
-      console.error('Error fetching deleted todos:', error);
+      console.error('削除されたタスクの取得に失敗しました:', error);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // 新しいタスクを追加する関数
+  const handleAddTodo = async () => {
     if (!newTodo.trim()) return;
 
     try {
@@ -257,95 +109,75 @@ function App() {
         category: selectedCategory,
         dueDate: dueDate || null,
       });
-      setTodos([response.data, ...todos]);
+
+      setTodos([...todos, response.data]);
       setNewTodo('');
-      setSelectedCategory('未分類');
       setDueDate('');
     } catch (error) {
-      console.error('Error creating todo:', error);
+      console.error('タスクの追加に失敗しました:', error);
     }
   };
 
-  const handleToggle = async (id: string) => {
+  // タスクを更新する関数
+  const handleUpdateTodo = async (todo: Todo) => {
     try {
-      const todo = todos.find((t) => t._id === id);
-      if (!todo) return;
-
-      await axios.patch(`http://localhost:3001/api/todos/${id}`, {
-        completed: !todo.completed,
+      await axios.patch(`http://localhost:3001/api/todos/${todo._id}`, {
+        title: todo.title,
+        completed: todo.completed,
+        category: todo.category,
+        dueDate: todo.dueDate,
       });
-      setTodos(
-        todos.map((todo) =>
-          todo._id === id ? { ...todo, completed: !todo.completed } : todo
-        )
-      );
+      fetchTodos();
     } catch (error) {
-      console.error('Error updating todo:', error);
+      console.error('タスクの更新に失敗しました:', error);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  // タスクを削除する関数（ゴミ箱に入れる）
+  const handleDeleteTodo = async (id: string) => {
     try {
       await axios.delete(`http://localhost:3001/api/todos/${id}`);
-      const deletedTodo = todos.find(todo => todo._id === id);
-      if (deletedTodo) {
-        setDeletedTodos([deletedTodo, ...deletedTodos]);
-      }
-      setTodos(todos.filter((todo) => todo._id !== id));
+      fetchTodos();
+      fetchDeletedTodos();
     } catch (error) {
-      console.error('Error deleting todo:', error);
+      console.error('タスクの削除に失敗しました:', error);
     }
   };
 
-  const handleRestore = async (id: string) => {
-    try {
-      const response = await axios.post(`http://localhost:3001/api/todos/${id}/restore`);
-      setTodos([response.data, ...todos]);
-      setDeletedTodos(deletedTodos.filter(todo => todo._id !== id));
-    } catch (error) {
-      console.error('Error restoring todo:', error);
-    }
-  };
-
+  // タスクを完全に削除する関数
   const handlePermanentDelete = async (id: string) => {
     try {
       await axios.delete(`http://localhost:3001/api/todos/${id}/permanent`);
-      setDeletedTodos(deletedTodos.filter(todo => todo._id !== id));
+      fetchDeletedTodos();
     } catch (error) {
-      console.error('Error permanently deleting todo:', error);
+      console.error('タスクの完全削除に失敗しました:', error);
     }
   };
 
-  const handleEdit = (todo: Todo) => {
-    setEditingTodo(todo);
-    setEditTitle(todo.title);
-    setEditCategory(todo.category);
-    setEditDueDate(todo.dueDate || '');
-    setOpenDialog(true);
-  };
-
-  const handleUpdate = async () => {
-    if (!editingTodo) return;
-
+  // タスクを復元する関数
+  const handleRestoreTodo = async (id: string) => {
     try {
-      const response = await axios.patch(`http://localhost:3001/api/todos/${editingTodo._id}`, {
-        title: editTitle,
-        category: editCategory,
-        dueDate: editDueDate || null,
-      });
-      setTodos(
-        todos.map((todo) =>
-          todo._id === editingTodo._id ? response.data : todo
-        )
-      );
-      setOpenDialog(false);
-      setEditingTodo(null);
+      await axios.post(`http://localhost:3001/api/todos/${id}/restore`);
+      fetchTodos();
+      fetchDeletedTodos();
     } catch (error) {
-      console.error('Error updating todo:', error);
+      console.error('タスクの復元に失敗しました:', error);
     }
   };
 
-  const handleDragEnd = async (result: DropResult) => {
+  // 完了したタスクを一括削除する関数
+  const handleDeleteCompleted = async () => {
+    try {
+      await axios.delete('http://localhost:3001/api/todos/completed');
+      fetchTodos();
+      fetchDeletedTodos();
+    } catch (error) {
+      console.error('完了タスクの削除に失敗しました:', error);
+    }
+  };
+
+  // タスクの順番を変更する関数
+  const handleDragEnd = async (result: any) => {
     if (!result.destination) return;
 
     const items = Array.from(todos);
@@ -362,517 +194,324 @@ function App() {
         })),
       });
     } catch (error) {
-      console.error('Error reordering todos:', error);
+      console.error('タスクの順番の更新に失敗しました:', error);
     }
   };
 
-  const handleTabChange = (_: SyntheticEvent, value: string) => {
-    setActiveTab(value);
+  // タブの切り替えを処理する関数
+  const handleTabChange = (event: React.SyntheticEvent, newValue: string) => {
+    setTabValue(newValue);
   };
 
-  const handleDeleteCompleted = async () => {
+  // タスクの編集ダイアログを開く関数
+  const handleEditClick = (todo: Todo) => {
+    setEditingTodo(todo);
+  };
+
+  // タスクの編集を保存する関数
+  const handleSaveEdit = async () => {
+    if (!editingTodo) return;
+
     try {
-      await axios.delete('http://localhost:3001/api/todos/completed/all');
-      const completedTodos = todos.filter(todo => todo.completed);
-      setDeletedTodos([...completedTodos, ...deletedTodos]);
-      setTodos(todos.filter(todo => !todo.completed));
+      await handleUpdateTodo(editingTodo);
+      setEditingTodo(null);
     } catch (error) {
-      console.error('Error deleting completed todos:', error);
+      console.error('タスクの編集に失敗しました:', error);
     }
   };
 
+  // タスクの編集をキャンセルする関数
+  const handleCancelEdit = () => {
+    setEditingTodo(null);
+  };
+
+  // タスクの編集ダイアログを表示するコンポーネント
+  const EditDialog = () => (
+    <Dialog open={!!editingTodo} onClose={handleCancelEdit}>
+      <DialogTitle>タスクを編集</DialogTitle>
+      <DialogContent>
+        <TextField
+          autoFocus
+          margin="dense"
+          label="タスク"
+          fullWidth
+          value={editingTodo?.title || ''}
+          onChange={(e) => setEditingTodo({ ...editingTodo!, title: e.target.value })}
+        />
+        <FormControl fullWidth margin="dense">
+          <InputLabel>カテゴリー</InputLabel>
+          <Select
+            value={editingTodo?.category || '未分類'}
+            onChange={(e) => setEditingTodo({ ...editingTodo!, category: e.target.value })}
+            label="カテゴリー"
+          >
+            {Object.keys(categoryColors).map((category) => (
+              <MenuItem key={category} value={category}>
+                {category}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        <TextField
+          margin="dense"
+          label="期限"
+          type="date"
+          fullWidth
+          InputLabelProps={{ shrink: true }}
+          value={editingTodo?.dueDate || ''}
+          onChange={(e) => setEditingTodo({ ...editingTodo!, dueDate: e.target.value })}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleCancelEdit}>キャンセル</Button>
+        <Button onClick={handleSaveEdit} variant="contained" color="primary">
+          保存
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+
+  // アプリケーションのメイン画面を表示するコンポーネント
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-        <Paper elevation={0} sx={{ p: 4, bgcolor: 'background.paper' }}>
-          <Typography variant="h4" component="h1" gutterBottom align="center" sx={{ mb: 4 }}>
-            タスク管理
-          </Typography>
+    <Container maxWidth="md">
+      <Box sx={{ my: 4 }}>
+        <Typography variant="h4" component="h1" gutterBottom align="center">
+          タスク管理アプリ
+        </Typography>
 
-          <TabContext value={activeTab}>
-            <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-              <TabList onChange={handleTabChange}>
-                <Tab label="アクティブ" value="active" />
-                <Tab 
-                  label={`ゴミ箱 (${deletedTodos.length})`} 
-                  value="trash"
-                  sx={{
-                    color: 'error.main',
-                    '&.Mui-selected': {
-                      color: 'error.main',
-                    },
-                  }}
-                />
-              </TabList>
-            </Box>
-
-            <TabPanel value="active" sx={{ p: 0 }}>
-              <Box component="form" onSubmit={handleSubmit} sx={{ mb: 4 }}>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  placeholder="新しいタスクを入力してEnterを押してください"
-                  value={newTodo}
-                  onChange={(e) => setNewTodo(e.target.value)}
-                  sx={{ 
-                    mb: 2,
-                    '& .MuiOutlinedInput-root': {
-                      '&.Mui-focused fieldset': {
-                        borderColor: categoryColors[selectedCategory].main,
-                      },
-                      '&:hover fieldset': {
-                        borderColor: categoryColors[selectedCategory].main,
-                      },
-                    },
-                    '& .MuiInputLabel-root.Mui-focused': {
-                      color: categoryColors[selectedCategory].main,
-                    },
-                  }}
-                />
-                <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
-                  <FormControl 
-                    fullWidth
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        '&.Mui-focused fieldset': {
-                          borderColor: categoryColors[selectedCategory].main,
-                        },
-                        '&:hover fieldset': {
-                          borderColor: categoryColors[selectedCategory].main,
-                        },
-                      },
-                      '& .MuiInputLabel-root.Mui-focused': {
-                        color: categoryColors[selectedCategory].main,
-                      },
-                    }}
-                  >
-                    <InputLabel>カテゴリー</InputLabel>
-                    <Select
-                      value={selectedCategory}
-                      label="カテゴリー"
-                      onChange={(e) => setSelectedCategory(e.target.value)}
-                    >
-                      {categories.map((category) => (
-                        <MenuItem 
-                          key={category} 
-                          value={category}
-                          sx={{
-                            color: categoryColors[category].text,
-                            '&:hover': {
-                              backgroundColor: categoryColors[category].light,
-                            },
-                            '&.Mui-selected': {
-                              backgroundColor: categoryColors[category].light,
-                              '&:hover': {
-                                backgroundColor: categoryColors[category].light,
-                              },
-                            },
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              width: 12,
-                              height: 12,
-                              borderRadius: '50%',
-                              backgroundColor: categoryColors[category].main,
-                              mr: 1,
-                              display: 'inline-block',
-                            }}
-                          />
-                          {category}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    type="date"
-                    label="期限"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    InputLabelProps={{ shrink: true }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        '&.Mui-focused fieldset': {
-                          borderColor: categoryColors[selectedCategory].main,
-                        },
-                        '&:hover fieldset': {
-                          borderColor: categoryColors[selectedCategory].main,
-                        },
-                      },
-                      '& .MuiInputLabel-root.Mui-focused': {
-                        color: categoryColors[selectedCategory].main,
-                      },
-                    }}
-                  />
-                </Stack>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  type="submit"
-                  disabled={!newTodo.trim()}
-                  sx={{ 
-                    py: 1.5,
-                    bgcolor: categoryColors[selectedCategory].main,
-                    '&:hover': {
-                      bgcolor: categoryColors[selectedCategory].main,
-                      opacity: 0.9,
-                    },
-                    '&.Mui-disabled': {
-                      bgcolor: alpha(categoryColors[selectedCategory].main, 0.3),
-                    },
-                  }}
-                >
-                  タスクを追加
-                </Button>
-              </Box>
-
-              <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  startIcon={<DeleteSweepIcon />}
-                  onClick={handleDeleteCompleted}
-                  disabled={!todos.some((todo) => todo.completed)}
-                  sx={{
-                    borderColor: 'error.main',
-                    '&:hover': {
-                      backgroundColor: alpha('#ff5263', 0.04),
-                      borderColor: 'error.dark',
-                    },
-                  }}
-                >
-                  完了したタスクを削除
-                </Button>
-              </Box>
-
-              <DragDropContext onDragEnd={handleDragEnd}>
-                <Droppable droppableId="todos">
-                  {(provided) => (
-                    <List {...provided.droppableProps} ref={provided.innerRef}>
-                      {todos.map((todo, index) => (
-                        <Draggable key={todo._id} draggableId={todo._id} index={index}>
-                          {(provided) => (
-                            <ListItem
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              sx={{
-                                bgcolor: 'background.paper',
-                                mb: 1,
-                                border: '1px solid',
-                                borderColor: 'divider',
-                                borderLeft: `4px solid ${categoryColors[todo.category].main}`,
-                                '&:hover': {
-                                  borderColor: categoryColors[todo.category].main,
-                                  borderLeftWidth: '4px',
-                                  bgcolor: categoryColors[todo.category].light,
-                                },
-                                position: 'relative',
-                                transition: 'all 0.2s ease',
-                              }}
-                            >
-                              <Box
-                                {...provided.dragHandleProps}
-                                className="drag-handle"
-                                sx={{
-                                  visibility: 'hidden',
-                                  color: 'text.secondary',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  mr: 1,
-                                }}
-                              >
-                                <DragIndicatorIcon />
-                              </Box>
-                              <Checkbox
-                                checked={todo.completed}
-                                onChange={() => handleToggle(todo._id)}
-                                color="primary"
-                                size="small"
-                                sx={{
-                                  color: todo.completed ? '#cbd4db' : categoryColors[todo.category].main,
-                                  '&.Mui-checked': {
-                                    color: categoryColors[todo.category].main,
-                                  },
-                                }}
-                              />
-                              <ListItemText
-                                primary={
-                                  <Box>
-                                    <Typography
-                                      variant="body1"
-                                      sx={{
-                                        textDecoration: todo.completed ? 'line-through' : 'none',
-                                        color: todo.completed ? 'text.secondary' : 'text.primary',
-                                        mb: 0.5,
-                                      }}
-                                    >
-                                      {todo.title}
-                                    </Typography>
-                                    <Stack direction="row" spacing={1}>
-                                      <Chip
-                                        label={todo.category}
-                                        size="small"
-                                        sx={{
-                                          backgroundColor: categoryColors[todo.category].light,
-                                          color: categoryColors[todo.category].text,
-                                          borderColor: 'transparent',
-                                          '& .MuiChip-label': {
-                                            fontWeight: 500,
-                                          },
-                                        }}
-                                      />
-                                      {todo.dueDate && (
-                                        <Chip
-                                          label={`期限: ${new Date(
-                                            todo.dueDate
-                                          ).toLocaleDateString()}`}
-                                          size="small"
-                                          variant="outlined"
-                                          sx={{
-                                            borderColor: categoryColors[todo.category].main,
-                                            color: categoryColors[todo.category].text,
-                                            '& .MuiChip-label': {
-                                              fontWeight: 500,
-                                            },
-                                          }}
-                                        />
-                                      )}
-                                    </Stack>
-                                  </Box>
-                                }
-                              />
-                              <ListItemSecondaryAction
-                                sx={{
-                                  visibility: 'hidden',
-                                  right: 8,
-                                }}
-                              >
-                                <IconButton
-                                  edge="end"
-                                  aria-label="edit"
-                                  onClick={() => handleEdit(todo)}
-                                  sx={{ 
-                                    mr: 1, 
-                                    color: 'text.secondary',
-                                    '&:hover': {
-                                      color: categoryColors[todo.category].main,
-                                    },
-                                  }}
-                                  size="small"
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                                <IconButton
-                                  edge="end"
-                                  aria-label="delete"
-                                  onClick={() => handleDelete(todo._id)}
-                                  sx={{ 
-                                    color: 'error.main',
-                                    '&:hover': {
-                                      color: 'error.dark',
-                                    },
-                                  }}
-                                  size="small"
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </ListItemSecondaryAction>
-                            </ListItem>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </List>
-                  )}
-                </Droppable>
-              </DragDropContext>
-            </TabPanel>
-
-            <TabPanel value="trash" sx={{ p: 0 }}>
-              <List>
-                {deletedTodos.map((todo) => (
-                  <ListItem
-                    key={todo._id}
-                    sx={{
-                      bgcolor: 'background.paper',
-                      mb: 1,
-                      border: '1px solid',
-                      borderColor: 'divider',
-                      borderLeft: `4px solid ${categoryColors[todo.category].main}`,
-                      opacity: 0.7,
-                      '&:hover': {
-                        opacity: 1,
-                        borderColor: categoryColors[todo.category].main,
-                        borderLeftWidth: '4px',
-                        bgcolor: categoryColors[todo.category].light,
-                      },
-                      position: 'relative',
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    <ListItemText
-                      primary={
-                        <Box>
-                          <Typography
-                            variant="body1"
-                            sx={{
-                              color: 'text.secondary',
-                              mb: 0.5,
-                            }}
-                          >
-                            {todo.title}
-                          </Typography>
-                          <Stack direction="row" spacing={1}>
-                            <Chip
-                              label={todo.category}
-                              size="small"
-                              sx={{
-                                backgroundColor: categoryColors[todo.category].light,
-                                color: categoryColors[todo.category].text,
-                                borderColor: 'transparent',
-                                opacity: 0.7,
-                                '& .MuiChip-label': {
-                                  fontWeight: 500,
-                                },
-                              }}
-                            />
-                            {todo.dueDate && (
-                              <Chip
-                                label={`期限: ${new Date(todo.dueDate).toLocaleDateString()}`}
-                                size="small"
-                                variant="outlined"
-                                sx={{
-                                  borderColor: categoryColors[todo.category].main,
-                                  color: categoryColors[todo.category].text,
-                                  opacity: 0.7,
-                                  '& .MuiChip-label': {
-                                    fontWeight: 500,
-                                  },
-                                }}
-                              />
-                            )}
-                            <Chip
-                              label={`削除: ${new Date(todo.deletedAt).toLocaleDateString()}`}
-                              size="small"
-                              color="error"
-                              variant="outlined"
-                              sx={{
-                                opacity: 0.7,
-                                '& .MuiChip-label': {
-                                  fontWeight: 500,
-                                },
-                              }}
-                            />
-                          </Stack>
-                        </Box>
-                      }
-                    />
-                    <ListItemSecondaryAction>
-                      <IconButton
-                        edge="end"
-                        aria-label="restore"
-                        onClick={() => handleRestore(todo._id)}
-                        sx={{ 
-                          mr: 1,
-                          color: categoryColors[todo.category].main,
-                        }}
-                        size="small"
-                      >
-                        <RestoreFromTrashIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        edge="end"
-                        aria-label="delete permanently"
-                        onClick={() => handlePermanentDelete(todo._id)}
-                        sx={{ 
-                          color: 'error.main',
-                          '&:hover': {
-                            color: 'error.dark',
-                          },
-                        }}
-                        size="small"
-                      >
-                        <DeleteForeverIcon fontSize="small" />
-                      </IconButton>
-                    </ListItemSecondaryAction>
-                  </ListItem>
-                ))}
-              </List>
-            </TabPanel>
-          </TabContext>
-        </Paper>
-
-        <Dialog 
-          open={openDialog} 
-          onClose={() => setOpenDialog(false)}
-          PaperProps={{
-            sx: {
-              borderRadius: 2,
-              minWidth: 400,
-            }
-          }}
-        >
-          <DialogTitle sx={{ pb: 1 }}>タスクを編集</DialogTitle>
-          <DialogContent>
-            <TextField
-              fullWidth
-              label="タイトル"
-              value={editTitle}
-              onChange={(e) => setEditTitle(e.target.value)}
-              sx={{ mb: 2, mt: 2 }}
-            />
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <InputLabel>カテゴリー</InputLabel>
-              <Select
-                value={editCategory}
-                label="カテゴリー"
-                onChange={(e) => setEditCategory(e.target.value)}
-              >
-                {categories.map((category) => (
-                  <MenuItem 
-                    key={category} 
-                    value={category}
-                    sx={{
-                      color: categoryColors[category].text,
-                      '&:hover': {
-                        backgroundColor: categoryColors[category].light,
-                      },
-                    }}
-                  >
+        {/* タスク入力フォーム */}
+        <Box sx={{ mb: 4, display: 'flex', gap: 2 }}>
+          <TextField
+            fullWidth
+            label="新しいタスク"
+            value={newTodo}
+            onChange={(e) => setNewTodo(e.target.value)}
+            onKeyPress={(e) => e.key === 'Enter' && handleAddTodo()}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': {
+                  borderColor: categoryColors[selectedCategory].main,
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: categoryColors[selectedCategory].main,
+                },
+              },
+              '& .MuiInputLabel-root.Mui-focused': {
+                color: categoryColors[selectedCategory].main,
+              },
+            }}
+          />
+          <FormControl sx={{ minWidth: 120 }}>
+            <InputLabel>カテゴリー</InputLabel>
+            <Select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              label="カテゴリー"
+              sx={{
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: categoryColors[selectedCategory].main,
+                },
+                '&:hover .MuiOutlinedInput-notchedOutline': {
+                  borderColor: categoryColors[selectedCategory].main,
+                },
+              }}
+            >
+              {Object.keys(categoryColors).map((category) => (
+                <MenuItem key={category} value={category}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box
                       sx={{
                         width: 12,
                         height: 12,
                         borderRadius: '50%',
-                        backgroundColor: categoryColors[category].main,
-                        mr: 1,
-                        display: 'inline-block',
+                        bgcolor: categoryColors[category].main,
                       }}
                     />
                     {category}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              fullWidth
-              type="date"
-              label="期限"
-              value={editDueDate}
-              onChange={(e) => setEditDueDate(e.target.value)}
-              InputLabelProps={{ shrink: true }}
-            />
-          </DialogContent>
-          <DialogActions sx={{ p: 2, pt: 0 }}>
-            <Button onClick={() => setOpenDialog(false)}>キャンセル</Button>
-            <Button onClick={handleUpdate} variant="contained">
-              保存
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Container>
-    </ThemeProvider>
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          <TextField
+            label="期限"
+            type="date"
+            value={dueDate}
+            onChange={(e) => setDueDate(e.target.value)}
+            InputLabelProps={{ shrink: true }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                '&:hover fieldset': {
+                  borderColor: categoryColors[selectedCategory].main,
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: categoryColors[selectedCategory].main,
+                },
+              },
+              '& .MuiInputLabel-root.Mui-focused': {
+                color: categoryColors[selectedCategory].main,
+              },
+            }}
+          />
+          <Button
+            variant="contained"
+            onClick={handleAddTodo}
+            disabled={!newTodo.trim()}
+            sx={{
+              bgcolor: categoryColors[selectedCategory].main,
+              '&:hover': {
+                bgcolor: categoryColors[selectedCategory].dark,
+              },
+              '&.Mui-disabled': {
+                bgcolor: categoryColors[selectedCategory].light,
+              },
+            }}
+          >
+            追加
+          </Button>
+        </Box>
+
+        {/* タブ切り替え */}
+        <TabContext value={tabValue}>
+          <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+            <TabList onChange={handleTabChange} aria-label="タスク一覧">
+              <Tab label="通常のタスク" value="0" />
+              <Tab label="ゴミ箱" value="1" />
+            </TabList>
+          </Box>
+
+          {/* 通常のタスク一覧 */}
+          <TabPanel value="0">
+            <DragDropContext onDragEnd={handleDragEnd}>
+              <Droppable droppableId="todos">
+                {(provided) => (
+                  <List {...provided.droppableProps} ref={provided.innerRef}>
+                    {todos.map((todo, index) => (
+                      <Draggable key={todo._id} draggableId={todo._id} index={index}>
+                        {(provided) => (
+                          <ListItem
+                            ref={provided.innerRef}
+                            {...provided.draggableProps}
+                            {...provided.dragHandleProps}
+                            sx={{
+                              bgcolor: 'background.paper',
+                              mb: 1,
+                              borderRadius: 1,
+                              border: 1,
+                              borderColor: categoryColors[todo.category].light,
+                              '&:hover': {
+                                bgcolor: categoryColors[todo.category].light,
+                              },
+                            }}
+                          >
+                            <Checkbox
+                              checked={todo.completed}
+                              onChange={() => handleUpdateTodo({ ...todo, completed: !todo.completed })}
+                              sx={{
+                                color: categoryColors[todo.category].main,
+                                '&.Mui-checked': {
+                                  color: categoryColors[todo.category].main,
+                                },
+                              }}
+                            />
+                            <ListItemText
+                              primary={todo.title}
+                              sx={{
+                                textDecoration: todo.completed ? 'line-through' : 'none',
+                                color: todo.completed ? 'text.secondary' : 'text.primary',
+                              }}
+                            />
+                            {todo.dueDate && (
+                              <Chip
+                                label={new Date(todo.dueDate).toLocaleDateString()}
+                                size="small"
+                                sx={{
+                                  mr: 1,
+                                  borderColor: categoryColors[todo.category].main,
+                                  color: categoryColors[todo.category].main,
+                                }}
+                              />
+                            )}
+                            <ListItemSecondaryAction>
+                              <IconButton
+                                edge="end"
+                                onClick={() => handleEditClick(todo)}
+                                sx={{ mr: 1 }}
+                              >
+                                <EditIcon />
+                              </IconButton>
+                              <IconButton
+                                edge="end"
+                                onClick={() => handleDeleteTodo(todo._id)}
+                              >
+                                <DeleteIcon />
+                              </IconButton>
+                            </ListItemSecondaryAction>
+                          </ListItem>
+                        )}
+                      </Draggable>
+                    ))}
+                    {provided.placeholder}
+                  </List>
+                )}
+              </Droppable>
+            </DragDropContext>
+            {todos.some((todo) => todo.completed) && (
+              <Button
+                variant="outlined"
+                color="error"
+                onClick={handleDeleteCompleted}
+                sx={{ mt: 2 }}
+              >
+                完了したタスクを削除
+              </Button>
+            )}
+          </TabPanel>
+
+          {/* ゴミ箱のタスク一覧 */}
+          <TabPanel value="1">
+            <List>
+              {deletedTodos.map((todo) => (
+                <ListItem
+                  key={todo._id}
+                  sx={{
+                    bgcolor: 'background.paper',
+                    mb: 1,
+                    borderRadius: 1,
+                    border: 1,
+                    borderColor: 'grey.300',
+                  }}
+                >
+                  <ListItemText
+                    primary={todo.title}
+                    secondary={`削除日時: ${new Date(todo.deletedAt!).toLocaleString()}`}
+                  />
+                  <ListItemSecondaryAction>
+                    <IconButton
+                      edge="end"
+                      onClick={() => handleRestoreTodo(todo._id)}
+                      sx={{ mr: 1 }}
+                    >
+                      <RestoreIcon />
+                    </IconButton>
+                    <IconButton
+                      edge="end"
+                      onClick={() => handlePermanentDelete(todo._id)}
+                      color="error"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </ListItemSecondaryAction>
+                </ListItem>
+              ))}
+            </List>
+          </TabPanel>
+        </TabContext>
+      </Box>
+
+      {/* 編集ダイアログ */}
+      <EditDialog />
+    </Container>
   );
 }
 
