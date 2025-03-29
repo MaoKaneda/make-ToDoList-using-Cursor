@@ -392,13 +392,19 @@ function App() {
                             {...provided.draggableProps}
                             {...provided.dragHandleProps}
                             sx={{
-                              bgcolor: 'background.paper',
+                              bgcolor: todo.dueDate && new Date(todo.dueDate) < new Date() && !todo.completed
+                                ? '#fff5f5'  // 期限切れは薄い赤色の背景
+                                : 'background.paper',
                               mb: 1,
                               borderRadius: 1,
                               border: 1,
-                              borderColor: categoryColors[todo.category].light,
+                              borderColor: todo.dueDate && new Date(todo.dueDate) < new Date() && !todo.completed
+                                ? '#ff1744'  // 期限切れは赤色のボーダー
+                                : categoryColors[todo.category].light,
                               '&:hover': {
-                                bgcolor: categoryColors[todo.category].light,
+                                bgcolor: todo.dueDate && new Date(todo.dueDate) < new Date() && !todo.completed
+                                  ? '#ffe5e5'  // 期限切れはホバー時に少し濃い赤色
+                                  : categoryColors[todo.category].light,
                               },
                               pr: 12,
                               position: 'relative',
@@ -429,8 +435,18 @@ function App() {
                                   label={new Date(todo.dueDate).toLocaleDateString()}
                                   size="small"
                                   sx={{
-                                    borderColor: categoryColors[todo.category].main,
-                                    color: categoryColors[todo.category].main,
+                                    borderColor: new Date(todo.dueDate) < new Date() && !todo.completed
+                                      ? '#ff1744'  // 期限切れは赤色
+                                      : categoryColors[todo.category].main,
+                                    color: new Date(todo.dueDate) < new Date() && !todo.completed
+                                      ? '#ff1744'  // 期限切れは赤色
+                                      : categoryColors[todo.category].main,
+                                    backgroundColor: new Date(todo.dueDate) < new Date() && !todo.completed
+                                      ? '#ffebee'  // 期限切れは薄い赤色の背景
+                                      : 'transparent',
+                                    fontWeight: new Date(todo.dueDate) < new Date() && !todo.completed
+                                      ? 'bold'
+                                      : 'normal',
                                   }}
                                 />
                               </Box>
