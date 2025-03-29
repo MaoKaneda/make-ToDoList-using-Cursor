@@ -22,10 +22,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  TabList,
-  TabContext,
-  TabPanel,
 } from '@mui/material';
+import { TabContext, TabList, TabPanel } from '@mui/lab';
 import { Delete as DeleteIcon, Edit as EditIcon, Restore as RestoreIcon } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import axios from 'axios';
