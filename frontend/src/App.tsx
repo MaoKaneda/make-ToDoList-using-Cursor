@@ -400,6 +400,8 @@ function App() {
                               '&:hover': {
                                 bgcolor: categoryColors[todo.category].light,
                               },
+                              pr: 12,
+                              position: 'relative',
                             }}
                           >
                             <Checkbox
@@ -417,18 +419,21 @@ function App() {
                               sx={{
                                 textDecoration: todo.completed ? 'line-through' : 'none',
                                 color: todo.completed ? 'text.secondary' : 'text.primary',
+                                flex: '1 1 auto',
+                                minWidth: 0,
                               }}
                             />
                             {todo.dueDate && (
-                              <Chip
-                                label={new Date(todo.dueDate).toLocaleDateString()}
-                                size="small"
-                                sx={{
-                                  mr: 1,
-                                  borderColor: categoryColors[todo.category].main,
-                                  color: categoryColors[todo.category].main,
-                                }}
-                              />
+                              <Box sx={{ display: 'flex', alignItems: 'center', mr: 6 }}>
+                                <Chip
+                                  label={new Date(todo.dueDate).toLocaleDateString()}
+                                  size="small"
+                                  sx={{
+                                    borderColor: categoryColors[todo.category].main,
+                                    color: categoryColors[todo.category].main,
+                                  }}
+                                />
+                              </Box>
                             )}
                             <ListItemSecondaryAction>
                               <IconButton
