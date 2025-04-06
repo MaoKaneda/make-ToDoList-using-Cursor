@@ -278,7 +278,13 @@ function App() {
         </Typography>
 
         {/* タスク入力フォーム */}
-        <Box sx={{ mb: 4, display: 'flex', gap: 2 }}>
+        <Box sx={{ 
+          mb: 4, 
+          display: 'flex', 
+          gap: 2,
+          flexWrap: { xs: 'wrap', md: 'nowrap' }, // モバイルでは折り返し、デスクトップでは一列に
+          alignItems: 'flex-start'
+        }}>
           <TextField
             fullWidth
             label="新しいタスク"
@@ -286,6 +292,8 @@ function App() {
             onChange={(e) => setNewTodo(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleAddTodo()}
             sx={{
+              flexGrow: 1,
+              minWidth: { xs: '100%', md: '200px' }, // モバイルでは100%、デスクトップでは最小200px
               '& .MuiOutlinedInput-root': {
                 '&:hover fieldset': {
                   borderColor: categoryColors[selectedCategory].main,
@@ -299,20 +307,23 @@ function App() {
               },
             }}
           />
-          <FormControl sx={{ minWidth: 120 }}>
+          <FormControl sx={{ 
+            minWidth: { xs: '100%', md: '200px' }, // モバイルでは100%、デスクトップでは最小200px
+            flexShrink: 0 
+          }}>
             <InputLabel>カテゴリー</InputLabel>
             <Select
               value={selectedCategory}
               onChange={(e) => setSelectedCategory(e.target.value)}
               label="カテゴリー"
               sx={{
+                width: '100%',
                 '& .MuiOutlinedInput-notchedOutline': {
                   borderColor: categoryColors[selectedCategory].main,
                 },
                 '&:hover .MuiOutlinedInput-notchedOutline': {
                   borderColor: categoryColors[selectedCategory].main,
                 },
-                minWidth: '160px', // 最小幅を設定
               }}
             >
               {Object.keys(categoryColors).map((category) => (
@@ -323,8 +334,7 @@ function App() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1,
-                    minWidth: '160px', // メニューアイテムの最小幅を設定
-                    whiteSpace: 'nowrap', // テキストの折り返しを防止
+                    whiteSpace: 'nowrap',
                   }}
                 >
                   <Box
@@ -333,7 +343,7 @@ function App() {
                       height: 12,
                       borderRadius: '50%',
                       bgcolor: categoryColors[category].main,
-                      flexShrink: 0, // カラーマーカーのサイズを固定
+                      flexShrink: 0,
                     }}
                   />
                   <Box sx={{ 
@@ -354,6 +364,8 @@ function App() {
             onChange={(e) => setDueDate(e.target.value)}
             InputLabelProps={{ shrink: true }}
             sx={{
+              minWidth: { xs: '100%', md: '160px' }, // モバイルでは100%、デスクトップでは最小160px
+              flexShrink: 0,
               '& .MuiOutlinedInput-root': {
                 '&:hover fieldset': {
                   borderColor: categoryColors[selectedCategory].main,
@@ -372,6 +384,8 @@ function App() {
             onClick={handleAddTodo}
             disabled={!newTodo.trim()}
             sx={{
+              minWidth: { xs: '100%', md: 'auto' }, // モバイルでは100%、デスクトップでは自動
+              height: '56px', // 他のフォーム要素と同じ高さに
               bgcolor: categoryColors[selectedCategory].main,
               '&:hover': {
                 bgcolor: categoryColors[selectedCategory].dark,
