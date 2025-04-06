@@ -53,11 +53,11 @@ interface CategoryColors {
 
 // カテゴリーごとの色を設定します
 const categoryColors: CategoryColors = {
-  '未分類': { main: '#9e9e9e', light: '#e0e0e0', dark: '#616161' },
-  '仕事': { main: '#2196f3', light: '#bbdefb', dark: '#1976d2' },
-  'プライベート': { main: '#4caf50', light: '#c8e6c9', dark: '#388e3c' },
-  '買い物': { main: '#ff9800', light: '#ffe0b2', dark: '#f57c00' },
-  'その他': { main: '#9c27b0', light: '#e1bee7', dark: '#7b1fa2' },
+  '未分類': { main: '#78909c', light: '#eceff1', dark: '#546e7a' },  // ブルーグレー
+  '仕事': { main: '#455a64', light: '#cfd8dc', dark: '#263238' },    // ダークブルーグレー
+  'プライベート': { main: '#5d4037', light: '#d7ccc8', dark: '#3e2723' },  // ブラウン
+  '買い物': { main: '#616161', light: '#e0e0e0', dark: '#424242' },   // グレー
+  'その他': { main: '#37474f', light: '#cfd8dc', dark: '#263238' },   // ダークグレー
 };
 
 // アプリケーションのメインコンポーネントです
@@ -312,19 +312,35 @@ function App() {
                 '&:hover .MuiOutlinedInput-notchedOutline': {
                   borderColor: categoryColors[selectedCategory].main,
                 },
+                minWidth: '160px', // 最小幅を設定
               }}
             >
               {Object.keys(categoryColors).map((category) => (
-                <MenuItem key={category} value={category}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box
-                      sx={{
-                        width: 12,
-                        height: 12,
-                        borderRadius: '50%',
-                        bgcolor: categoryColors[category].main,
-                      }}
-                    />
+                <MenuItem 
+                  key={category} 
+                  value={category}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1,
+                    minWidth: '160px', // メニューアイテムの最小幅を設定
+                    whiteSpace: 'nowrap', // テキストの折り返しを防止
+                  }}
+                >
+                  <Box
+                    sx={{
+                      width: 12,
+                      height: 12,
+                      borderRadius: '50%',
+                      bgcolor: categoryColors[category].main,
+                      flexShrink: 0, // カラーマーカーのサイズを固定
+                    }}
+                  />
+                  <Box sx={{ 
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    flexGrow: 1,
+                  }}>
                     {category}
                   </Box>
                 </MenuItem>
